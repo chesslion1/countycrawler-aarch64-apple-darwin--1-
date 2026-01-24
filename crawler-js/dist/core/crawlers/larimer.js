@@ -1,0 +1,41 @@
+const TARGET_URL = 'https://apps.larimer.org/publictrustee/search/';
+const startDateElement = {
+    id: "#ctl00_ContentPlaceHolder1_txtCurrentScheduledSaleDateFrom",
+    position: 0,
+    type: 'text',
+    value: 'txtCurrentScheduledSaleDateFrom'
+};
+const searchElement = {
+    id: "#ctl00_ContentPlaceHolder1_btnSearch",
+    type: 'submit',
+    value: 'Search'
+};
+const navPageElement = {
+    id: "#ctl00_ContentPlaceHolder1_gvSearchResults > tbody > tr:nth-child(1)",
+    type: 'a.py-1.px-3',
+    value: 'table',
+};
+const tableElement = {
+    id: "#ctl00_ContentPlaceHolder1_gvSearchResults",
+    type: 'javascript:__doPostBack', // This is the selector for accessing NED details from table records
+};
+const tableMapping = {
+    0: 'ned_number',
+    1: 'owner',
+    2: 'street',
+    3: 'zip',
+    4: 'subdivision',
+    5: 'status',
+};
+export const larimerCountyCrawler = {
+    targetUrl: TARGET_URL,
+    dividingChar: '',
+    givesFullAddress: false,
+    dateFilterLabel: 'Current Scheduled Sale Date Range',
+    startDateSelectorElement: startDateElement,
+    searchElement: searchElement,
+    navPageElement: navPageElement,
+    tableElement: tableElement,
+    hasDisclaimer: false,
+    tableMapping: tableMapping,
+};

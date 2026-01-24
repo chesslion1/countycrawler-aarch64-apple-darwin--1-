@@ -1,0 +1,76 @@
+#!/bin/bash
+# County Foreclosure Scraper - Converts to CSV and saves to Documents
+
+CSV_BASE="/Users/leohoffman/Documents/route building/csv"
+YEAR=$(date +%Y)
+MONTH=$(date +%B)
+FILENAME=$(date +%d_output_from_%H-%M-%S).csv
+CSV_DIR="$CSV_BASE/$YEAR/$MONTH"
+export CSV_FILE="$CSV_DIR/$FILENAME"
+export TEMP_JSON="/tmp/crawl_$$.json"
+
+# Create directory and fix permissions if needed
+mkdir -p "$CSV_DIR" 2>/dev/null
+if [ ! -w "$CSV_DIR" ]; then
+  echo "🔧 Fixing folder permissions..."
+  sudo chown -R $(whoami):staff "$CSV_BASE"
+fi
+
+cd "/Users/leohoffman/Downloads/countycrawler-aarch64-apple-darwin (1)/crawler-js"
+
+# Default to all counties if none specified
+if [ -z "$1" ]; then
+  COUNTIES="denver,adams,arapahoe,boulder,broomfield,clearcreek,douglas,elbert,elpaso,gilpin,jefferson,larimer,weld"
+else
+  COUNTIES="$1"
+fi
+
+echo "🔍 Crawling counties: $COUNTIES"
+echo ""
+
+# Run crawler - JSON goes to temp file, progress shows on screen
+node dist/index.js --counties "$COUNTIES" --start-date "$(date +%Y-%m-%d)" "${@:2}" > "$TEMP_JSON"
+
+# Check if we got data
+if [ ! -s "$TEMP_JSON" ]; then
+  echo ""
+  echo "❌ No data captured."
+  rm -f "$TEMP_JSON"
+  exit 1
+fi
+
+# Convert JSON to CSV
+node << 'NODESCRIPT'
+const fs = require('fs');
+try {
+  const data = fs.readFileSync(process.env.TEMP_JSON, 'utf8');
+  const records = JSON.parse(data);
+  if (!records || records.length === 0) {
+    console.error('\n❌ No records found.');
+    process.exit(1);
+  }
+  // CSV header matching the Rust binary output
+  const headers = ['ned_number','ned_details_link','owner','street','city','county','state','zip','subdivision','balance_due','auction_date','status','ned_file_date','address'];
+  let csv = headers.join(',') + '\n';
+  records.forEach(r => {
+    const row = headers.map(h => {
+      const val = (r[h] || '').toString();
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        return '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    });
+    csv += row.join(',') + '\n';
+  });
+  fs.writeFileSync(process.env.CSV_FILE, csv);
+  console.error('');
+  console.error('✅ Saved ' + records.length + ' records to:');
+  console.error('   ' + process.env.CSV_FILE);
+} catch (e) {
+  console.error('\n❌ Error:', e.message);
+  process.exit(1);
+}
+NODESCRIPT
+
+# Cleanup
+rm -f "$TEMP_JSON"
