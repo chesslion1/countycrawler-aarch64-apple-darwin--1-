@@ -341,7 +341,7 @@ export class Crawler {
             const nextButtonLocator = this.page.locator(targetSelector).first();
             const exists = await nextButtonLocator.isVisible({ timeout: 5000 });
             if (exists) {
-                console.error(`\tNavigating to page ${nextPageNo}/${this.totalPages}...`);
+                console.error(`\tNavigating to page ${nextPageNo}...`);
                 await Promise.all([
                     this.page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => { }),
                     nextButtonLocator.click({ force: true }).catch(() => { })
@@ -349,12 +349,7 @@ export class Crawler {
                 return true;
             }
             else {
-                if (nextPageNo <= this.totalPages) {
-                    console.error(`\tERROR: Having trouble locating page ${nextPageNo} when it should be there. Target selector used: ${targetSelector}...`);
-                }
-                else {
-                    console.error(`\tNext page link for page ${nextPageNo} not found. Ending pagination.`);
-                }
+                // No next page link found - we've reached the end
                 return false;
             }
         }
@@ -365,18 +360,28 @@ export class Crawler {
     }
     async crawlPages() {
         const all = [];
-        for (let currentPage = 1; currentPage <= this.totalPages; currentPage++) {
+        let currentPage = 1;
+        const maxPages = 100; // Safety limit to prevent infinite loops
+        
+        while (currentPage <= maxPages) {
+            console.error(`\tScraping page ${currentPage}...`);
             const pageResults = await this.extractPageData();
             all.push(...pageResults);
-            if (currentPage == this.totalPages) {
-                console.error(`\tBreaking because we've reached the last page already (${currentPage}).`);
+            
+            // In dev mode, stop after 2 pages
+            if (this.isDev && currentPage >= 2) {
+                console.error(`\tDev mode: stopping after ${currentPage} pages.`);
                 break;
             }
-            else {
-                const invalid = await this.clickNextPage(currentPage);
-                if (!invalid || currentPage == this.totalPages)
-                    break;
+            
+            // Try to go to next page
+            const hasNextPage = await this.clickNextPage(currentPage);
+            if (!hasNextPage) {
+                console.error(`\tNo more pages found. Finished at page ${currentPage}.`);
+                break;
             }
+            
+            currentPage++;
             await sleep(jitter(this.delaySecs * 1000));
         }
         return all;
