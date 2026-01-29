@@ -88,6 +88,23 @@ export class Crawler {
                     const accepted = await this.clickAcceptDisclaimer(this.page, this.disclaimer);
                     if (!accepted || !statusSelected || !filled || !search)
                         return false;
+                    // Wait for results table to load after disclaimer (Denver needs this)
+                    console.error(`\tWaiting for results table to load after disclaimer for ${this.capitalize(this.countyName)} county...`);
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:postDisclaimer:waitStart',message:'Starting extended wait for table after disclaimer',data:{county:this.countyName,tableSelector:this.tableElement.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-fix'})}).catch(()=>{});
+                    // #endregion
+                    try {
+                        await this.page.waitForSelector(this.tableElement.id, { state: 'attached', timeout: 30000 });
+                        console.error(`\tResults table detected after disclaimer for ${this.capitalize(this.countyName)} county.`);
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:postDisclaimer:tableFound',message:'Table found after disclaimer wait',data:{county:this.countyName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-fix'})}).catch(()=>{});
+                        // #endregion
+                    } catch (e) {
+                        console.error(`\tWarning: Results table not immediately visible after disclaimer, will retry in waitForSearchResultsTable...`);
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:postDisclaimer:tableFailed',message:'Table NOT found after disclaimer wait',data:{county:this.countyName,error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-fix'})}).catch(()=>{});
+                        // #endregion
+                    }
                 }
             }
         }
@@ -154,12 +171,21 @@ export class Crawler {
         }
     }
     async clickAcceptDisclaimer(page, disclaimer) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:clickAcceptDisclaimer:entry',message:'Disclaimer click attempt',data:{county:this.countyName,disclaimerId:disclaimer.id,disclaimerPosition:disclaimer.position},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         const acceptLocator = page.locator(disclaimer.id);
         try {
             await acceptLocator.waitFor({ state: 'visible', timeout: 10000 });
             console.error(`\t${disclaimer.value} button is visible for ${this.capitalize(this.countyName)} county.`);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:clickAcceptDisclaimer:visible',message:'Disclaimer button found visible',data:{county:this.countyName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
         }
         catch (e) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:clickAcceptDisclaimer:timeout',message:'Disclaimer button NOT visible - TIMEOUT',data:{county:this.countyName,error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             console.error(`\tERROR: Could not find the ${disclaimer.value} button when it should be visible.`);
             return false;
         }
@@ -174,6 +200,9 @@ export class Crawler {
         }
     }
     async fillStartAndEndDate() {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:fillStartAndEndDate:entry',message:'Starting date fill',data:{county:this.countyName,startId:this.startDateSelectorElement.id,endId:this.startDateSelectorElement.value},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
+        // #endregion
         console.error(`\tPreparing to fill the start and end date elements for ${this.capitalize(this.countyName)} county...`);
         const startDateLocator = this.page.locator(this.startDateSelectorElement.id);
         const endDateLocator = this.page.locator(this.startDateSelectorElement.value);
@@ -181,8 +210,14 @@ export class Crawler {
             await startDateLocator.waitFor({ state: 'visible', timeout: 10000 });
             await endDateLocator.waitFor({ state: 'visible', timeout: 10000 });
             console.error(`\tBoth the start or end date elements are visible for ${this.capitalize(this.countyName)} county.`);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:fillStartAndEndDate:visible',message:'Both date fields visible',data:{county:this.countyName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
         }
         catch (e) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:fillStartAndEndDate:notVisible',message:'Date fields NOT visible - TIMEOUT',data:{county:this.countyName,error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
             console.error(`ERROR: Could not find the start or end date element for
              ${this.capitalize(this.countyName)} county using the id '${this.startDateSelectorElement.id}':`, e);
             return false;
@@ -194,9 +229,15 @@ export class Crawler {
         const startDateString = this.dividingChar == '' ? startDate : this.parseDate(startDate);
         console.error(`\tFilling start date ${this.startDateSelectorElement.id} with ${startDateString}`);
         const startDateFillSucceeded = await this.fillDate(startDateLocator, startDateString, false);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:fillStartAndEndDate:startFilled',message:'Start date fill result',data:{county:this.countyName,startDateString:startDateString,success:startDateFillSucceeded},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         const endDateString = this.dividingChar == '' ? this.startDate : this.parseDate();
         console.error(`\tFilling end date ${this.startDateSelectorElement.value} with ${endDateString}`);
         const endDateFillSucceeded = await this.fillDate(endDateLocator, endDateString, true);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:fillStartAndEndDate:endFilled',message:'End date fill result',data:{county:this.countyName,endDateString:endDateString,success:endDateFillSucceeded},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         return startDateFillSucceeded && endDateFillSucceeded;
     }
     async fillStartDate() {
@@ -244,6 +285,9 @@ export class Crawler {
         }
     }
     async waitForSearchResultsTable(notifyUser = false) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:waitForSearchResultsTable:entry',message:'Waiting for results table',data:{county:this.countyName,tableSelector:this.tableElement.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         if (this.navPageElement.value == 'table') {
             console.error(`\t${this.capitalize(this.countyName)} county has a custom pagination control; skipping pagination check and defaulting to 1 page of results.`);
             this.totalPages = 1;
@@ -256,8 +300,14 @@ export class Crawler {
             try {
                 await tableLocator.waitFor({ state: 'attached', timeout: 60000 });
                 console.error(`\tThe results table for ${this.capitalize(this.countyName)} county has been found.`);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:waitForSearchResultsTable:attached',message:'Table attached to DOM',data:{county:this.countyName,totalPages:this.totalPages},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+                // #endregion
             }
             catch (e) {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:waitForSearchResultsTable:timeout',message:'Table NOT found - TIMEOUT',data:{county:this.countyName,error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+                // #endregion
                 console.error(`FATAL ERROR: Results table was not detected on the page using selector.\
                  Cannot proceed with extraction.`);
                 return false;
@@ -265,6 +315,9 @@ export class Crawler {
             const isPresent = await tableLocator.isVisible({ timeout: 10000 }).catch(() => false);
             if (isPresent) {
                 console.error(`\tThe results table for ${this.capitalize(this.countyName)} county was successfully loaded.`);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:waitForSearchResultsTable:visible',message:'Table is visible - SUCCESS',data:{county:this.countyName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
+                // #endregion
                 return true;
             }
             else {
@@ -389,11 +442,23 @@ export class Crawler {
     async clickButton(btn, btnName, successMessage) {
         console.error(`\tAttempting to click the ${btnName} button for ${this.capitalize(this.countyName)} county...`);
         const timeout = this.countyName == 'denver' ? 200000 : 10000;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:clickButton:entry',message:'Button click attempt',data:{county:this.countyName,btnName:btnName,timeout:timeout},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         try {
             await btn.click({ timeout: timeout });
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:clickButton:clicked',message:'Button clicked, waiting for networkidle',data:{county:this.countyName,btnName:btnName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             await this.page.waitForLoadState('networkidle', { timeout: 10000 });
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:clickButton:networkidle',message:'NetworkIdle reached',data:{county:this.countyName,btnName:btnName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
         }
         catch (e) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:clickButton:error',message:'Button click or networkIdle FAILED',data:{county:this.countyName,btnName:btnName,error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             console.error(`ERROR: The ${this.capitalize(this.countyName)} county scraper had an error\
              while trying to click the ${btnName} button: ${e.message}`);
             return false;
