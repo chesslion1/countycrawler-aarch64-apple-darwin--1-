@@ -89,21 +89,25 @@ export class Crawler {
                     if (!accepted || !statusSelected || !filled || !search)
                         return false;
                     // Wait for results table to load after disclaimer (Denver needs up to 5 min)
-                    console.error(`\tWaiting for results table to load after disclaimer for ${this.capitalize(this.countyName)} county (up to 5 min)...`);
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:postDisclaimer:waitStart',message:'Starting 5min wait for table after disclaimer',data:{county:this.countyName,tableSelector:this.tableElement.id,timeoutMs:300000},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-fix'})}).catch(()=>{});
-                    // #endregion
-                    try {
-                        await this.page.waitForSelector(this.tableElement.id, { state: 'attached', timeout: 300000 });
-                        console.error(`\tResults table detected after disclaimer for ${this.capitalize(this.countyName)} county.`);
-                        // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:postDisclaimer:tableFound',message:'Table found after disclaimer wait',data:{county:this.countyName},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-fix'})}).catch(()=>{});
-                        // #endregion
-                    } catch (e) {
-                        console.error(`\tWarning: Results table not visible after 5 min wait, will retry in waitForSearchResultsTable...`);
-                        // #region agent log
-                        fetch('http://127.0.0.1:7242/ingest/f94c4442-31f1-45af-b05a-4df61c283846',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crawler.js:postDisclaimer:tableFailed',message:'Table NOT found after 5min wait',data:{county:this.countyName,error:e.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-fix'})}).catch(()=>{});
-                        // #endregion
+                    // Try up to 2 times with page reload on failure
+                    let tableLoaded = false;
+                    for (let attempt = 1; attempt <= 2 && !tableLoaded; attempt++) {
+                        console.error(`\tWaiting for results table after disclaimer (attempt ${attempt}/2, up to 5 min)...`);
+                        try {
+                            await this.page.waitForSelector(this.tableElement.id, { state: 'attached', timeout: 300000 });
+                            console.error(`\tResults table detected after disclaimer for ${this.capitalize(this.countyName)} county.`);
+                            tableLoaded = true;
+                        } catch (e) {
+                            console.error(`\tAttempt ${attempt}: Results table not visible after 5 min wait.`);
+                            if (attempt < 2) {
+                                console.error(`\tReloading page and retrying...`);
+                                await this.page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
+                                await sleep(5000);
+                            }
+                        }
+                    }
+                    if (!tableLoaded) {
+                        console.error(`\tFailed to load results table after 2 attempts for ${this.capitalize(this.countyName)} county.`);
                     }
                 }
             }
